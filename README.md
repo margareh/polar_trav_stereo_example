@@ -2,18 +2,22 @@
 
 This repository contains a simple example of OpenCV's SGBM stereo algorithm run on the [POLAR Traverse Dataset](https://ti.arc.nasa.gov/dataset/PolarTrav/).
 
+## Data
+
 The images used for this simple example are from the following subset of the dataset:
 - View 1 (forward-facing, light at 20 degrees)
 - Traverse 3 (cameras at 1.35 m height with 35 degree pitch)
 
 5 total image pairs are used with the following additional parameters:
-- 1 m along test bed, 25 ms exposure
-- 9 m along test bed, 5 ms exposure
-- 9 m along test bed, 25 ms exposure
-- 9 m along test bed, 75 ms exposure
-- 9 m along test bed, 300 ms exposure
+- 1 m along test bed (locs 46 and 47), 25 ms exposure
+- 9 m along test bed (locs 62 and 63), 5 ms exposure
+- 9 m along test bed (locs 62 and 63), 25 ms exposure
+- 9 m along test bed (locs 62 and 63), 75 ms exposure
+- 9 m along test bed (locs 62 and 63), 300 ms exposure
 
-## Structure
+The images do not have the same names as they do in the POLAR Traverse Dataset (this example was created before the naming conventions for the published dataset were defined).
+
+## Example
 
 The `gen_disparity.py` script in the `scripts` subdirectory can be used to produce the results. This script calls the stereo matcher class defined in `stereo.py` to perform image rectification and matching using OpenCV, followed by computation of disparities and generation of point clouds.
 
