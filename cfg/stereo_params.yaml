@@ -1,0 +1,25 @@
+---
+SGBM:           true
+
+# Required params for both methods
+numDisparities:    512
+blockSize:         11
+
+# Optional params for both methods
+minDisparity:       0
+prefilterCap:      15
+uniquenessRatio:   10
+speckleWindowSize: 150
+speckleRange:      1
+
+# Optional params for BM (ignored if SGBM = 1)
+prefilterType:      0
+prefilterSize:     15
+textureThreshold: 100
+
+# Optional params for SGBM (ignored if SGBM = 0)
+P1:          968
+P2:          3872
+mode:          0
+disp12MaxDiff: 1
+
