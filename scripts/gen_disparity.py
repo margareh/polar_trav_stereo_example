@@ -11,8 +11,6 @@ import os
 import cv2
 import open3d as o3d
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 from stereo import Stereo
 
@@ -23,9 +21,8 @@ def parse_args():
     # Set up argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument('--datapath', type=str, default='../data', help='File path to stereo pair data')
-    parser.add_argument('--outpath', type=str, default='../results/stereo', help='File path to store results in')
-    parser.add_argument('--calib', type=str, default='../data/20220817-exposure-time-vo/calibration/20220729-geometric/stereo_calib.txt',
-                        help='File path to calibration file to use in stereo processing')
+    parser.add_argument('--outpath', type=str, default='../results', help='File path to store results in')
+    parser.add_argument('--calib', type=str, default='../calib', help='Path to calibration files to use in stereo processing')
     parser.add_argument('--stereo_params', type=str, default='../cfg/stereo_params.yaml', help='YAML file with config parameters for stereo alg')
     parser.add_argument('--verbose', action='store_true', help='Whether to print verbose messages')
     parser.add_argument('--height', type=float, default=1.35, help='Height of cameras')
@@ -85,46 +82,55 @@ def parse_file_names(dir, verbose):
 
     return file_list
 
-def parse_calib_file(calib, dims=(2048,2048)):
+def parse_calib_files(calib, dims=(2048,2048)):
 
-    # Read file into a list
-    f = open(calib, 'r')
-    text = f.readlines()
+    # extrinsics
+    ext_fs = cv2.FileStorage(os.path.join(calib, 'extrinsics.yml'), cv2.FILE_STORAGE_READ)
+    rot_mat = ext_fs.getNode('rotation_matrix').mat()
+    transl_vec = ext_fs.getNode('translation_vector').mat()
+    ext_fs.release()
 
-    # Left camera intrinsics
-    f0 = text[5]
-    p0 = text[6]
-    r0 = text[8]
-    t0 = text[9]
+    # left intrinsics
+    left_fs = cv2.FileStorage(os.path.join(calib, 'left_intrinsics.yml'), cv2.FILE_STORAGE_READ)
+    cam_mx0 = left_fs.getNode('camera_matrix').mat()
+    dist0 = left_fs.getNode('distortion_coefficients').mat()
+    left_fs.release()
 
-    # Right camera intrinsics
-    f1 = text[12]
-    p1 = text[13]
-    r1 = text[15]
-    t1 = text[16]
-
-    # Extrinsics
-    R = text[20:24]
-    T = text[28]
+    # right intrinsics
+    right_fs = cv2.FileStorage(os.path.join(calib, 'right_intrinsics.yml'), cv2.FILE_STORAGE_READ)
+    cam_mx1 = right_fs.getNode('camera_matrix').mat()
+    dist1 = right_fs.getNode('distortion_coefficients').mat()
+    right_fs.release()
 
     # Put it all together in the appropriate format
-    calib_data = {   
-                'camera_matrix0': np.array([[1.45271e+03, 0.00000000e+00, 0.99953e+03],
-                                            [0.00000000e+00, 1.45288e+03, 1.03540e+03],
-                                            [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-                'camera_matrix1': np.array([[1.45572e+03, 0.00000000e+00, 1.02112e+03],
-                                            [0.00000000e+00, 1.45513e+03, 1.01076e+03],
-                                            [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-                'distortion_coeffs0': np.array([[-0.016834, -0.027914, -0.000321, -0.000487, -0.001499]]),
-                'distortion_coeffs1': np.array([[-0.017925, -0.019475, -0.000444, -0.000287, -0.011515]]),
-                'rotation_matrix': np.array([[ 9.999957824489283e-01, 1.287498211802540e-04,  2.901466498043608e-03],
-                                             [-1.384127605741120e-04, 9.999944445926076e-01, -3.330409258625485e-03],
-                                             [-2.901021589618670e-03, 3.330796812442055e-03,  9.999902448855843e-01]]),
-                'translation_vector': np.array([[-399.577424 / 1000],
-                                                [0.167072 / 1000],
-                                                [-0.584272 / 1000]]),
-                'img_dims': dims
-            }
+    calib_data = {
+        'camera_matrix0': np.array(cam_mx0),
+        'camera_matrix1': np.array(cam_mx1),
+        'distortion_coeffs0': np.array(dist0),
+        'distortion_coeffs1': np.array(dist1),
+        'rotation_matrix': np.array(rot_mat),
+        'translation_vector': np.array(transl_vec),
+        'img_dims': dims
+    }
+
+    # # Put it all together in the appropriate format
+    # calib_data = {   
+    #             'camera_matrix0': np.array([[1.45271e+03, 0.00000000e+00, 0.99953e+03],
+    #                                         [0.00000000e+00, 1.45288e+03, 1.03540e+03],
+    #                                         [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
+    #             'camera_matrix1': np.array([[1.45572e+03, 0.00000000e+00, 1.02112e+03],
+    #                                         [0.00000000e+00, 1.45513e+03, 1.01076e+03],
+    #                                         [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
+    #             'distortion_coeffs0': np.array([[-0.016834, -0.027914, -0.000321, -0.000487, -0.001499]]),
+    #             'distortion_coeffs1': np.array([[-0.017925, -0.019475, -0.000444, -0.000287, -0.011515]]),
+    #             'rotation_matrix': np.array([[ 9.999957824489283e-01, 1.287498211802540e-04,  2.901466498043608e-03],
+    #                                          [-1.384127605741120e-04, 9.999944445926076e-01, -3.330409258625485e-03],
+    #                                          [-2.901021589618670e-03, 3.330796812442055e-03,  9.999902448855843e-01]]),
+    #             'translation_vector': np.array([[-399.577424 / 1000],
+    #                                             [0.167072 / 1000],
+    #                                             [-0.584272 / 1000]]),
+    #             'img_dims': dims
+    #         }
 
     return calib_data
 
@@ -173,11 +179,18 @@ def perform_stereo(pairs, calib, args):
     n = len(pairs)
     for i in range(n):
 
+        # get info for saving images
+        img_name = pairs[i][0]
+        dist = img_name[img_name.find('_')+1:img_name.find('cam')-2]
+        exp = img_name[img_name.find('cam')+5:img_name.find('ms')]
+        disp_file = 'disp_'+dist+'m_'+exp+'ms.png'
+        pcl_file = 'pcl_'+dist+'m_'+exp+'ms.pcd'
+
         if verbose:
             print("On stereo pair "+str(i+1)+" out of "+str(n))
             print("   Left image file is "+pairs[i][0])
-            print("   Saving disparity to "+disp_path+'_'+str(i)+'.png')
-            print("   Saving point cloud to "+pcl_path+'_'+str(i)+'.pcd')
+            print("   Saving disparity to "+disp_file)
+            print("   Saving point cloud to "+pcl_file)
             print("\n")
 
         # Load images
@@ -186,7 +199,7 @@ def perform_stereo(pairs, calib, args):
 
         # Get rectified images and disparity
         stereo_matcher.rectAndStereo(left_img, right_img, rect_maps, True, True)
-        cv2.imwrite(disp_path+'/disp_'+str(i)+'.png', stereo_matcher.disp)
+        cv2.imwrite(os.path.join(disp_path, disp_file), stereo_matcher.disp)
 
         # Get point cloud
         # print(Q)
@@ -229,7 +242,7 @@ def perform_stereo(pairs, calib, args):
 
         # write point cloud to file
         # print(stereo_matcher.pcl.shape)
-        o3d.io.write_point_cloud(pcl_path+'/pcl_'+str(i)+'.pcd', pcd_in2)
+        o3d.io.write_point_cloud(os.path.join(pcl_path, pcl_file), pcd_in2)
 
 
 if __name__ == "__main__":
@@ -239,26 +252,8 @@ if __name__ == "__main__":
     pairs = parse_file_names(args.datapath, args.verbose)
 
     # Get calibration information
-    # calib = parse_calib_file(args.calib)
-
-    # For full res images
-    calib = {   
-                'camera_matrix0': np.array([[1.45271e+03, 0.00000000e+00, 0.99953e+03],
-                                            [0.00000000e+00, 1.45288e+03, 1.03540e+03],
-                                            [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-                'camera_matrix1': np.array([[1.45572e+03, 0.00000000e+00, 1.02112e+03],
-                                            [0.00000000e+00, 1.45513e+03, 1.01076e+03],
-                                            [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]]),
-                'distortion_coeffs0': np.array([[-0.016834, -0.027914, -0.000321, -0.000487, -0.001499]]),
-                'distortion_coeffs1': np.array([[-0.017925, -0.019475, -0.000444, -0.000287, -0.011515]]),
-                'rotation_matrix': np.array([[ 9.999957824489283e-01, 1.384127605741120e-04,  2.901021589618670e-03],
-                                                [-1.287498211802540e-04, 9.999944445926076e-01, -3.330796812442055e-03],
-                                                [-2.901466498043608e-03, 3.330409258625485e-03,  9.999902448855843e-01]]),
-                'translation_vector': np.array([[-399.577424 / 1000],
-                                                [0.167072 / 1000],
-                                                [-0.584272 / 1000]]),
-                'img_dims': (2048, 2048)
-            }
+    calib = parse_calib_files(args.calib)
+    # print(calib)
 
     # Perform stereo over set of files
     perform_stereo(pairs, calib, args)
